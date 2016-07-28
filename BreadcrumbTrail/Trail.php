@@ -73,7 +73,7 @@ class Trail implements \IteratorAggregate, \Countable
      * @throws \InvalidArgumentException
      * @return self
      */
-    public function add($breadcrumb_or_title, $routeName = null, $routeParameters = array(), $routeAbsolute = false, $position = 0, $attributes = array())
+    public function add($breadcrumb_or_title, $routeName = null, $routeParameters = array(), $routeAbsolute = UrlGeneratorInterface::ABSOLUTE_PATH, $position = 0, $attributes = array())
     {
         if ($breadcrumb_or_title === null) {
             return $this->reset();
@@ -86,7 +86,12 @@ class Trail implements \IteratorAggregate, \Countable
                 throw new \InvalidArgumentException('The title of a breadcrumb must be a string.');
             }
 
-            $request = $this->container->get('request_stack', ContainerInterface::EXCEPTION_ON_INVALID_REFERENCE)->getCurrentRequest();
+            if ($this->container->has('request_stack')) {
+                $request = $this->container->get('request_stack')->getCurrentRequest();
+            } else {
+                // For Symfony < 2.4
+                $request = $this->container->get('request', ContainerInterface::NULL_ON_INVALID_REFERENCE);
+            }
 
             if ($request !== null) {
                 preg_match_all('#\{(?P<variable>\w+).?(?P<function>([\w\.])*):?(?P<parameters>(\w|,| )*)\}#', $breadcrumb_or_title, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
@@ -203,7 +208,8 @@ class Trail implements \IteratorAggregate, \Countable
 
             $url = null;
             if ( !is_null($routeName) ) {
-                $url = $this->router->generate($routeName, $routeParameters, $routeAbsolute);
+                $referenceType = $routeAbsolute ? UrlGeneratorInterface::ABSOLUTE_URL : UrlGeneratorInterface::RELATIVE_PATH;
+                $url = $this->router->generate($routeName, $routeParameters, $referenceType);
             }
 
             $breadcrumb = new Breadcrumb($breadcrumb_or_title, $url, $attributes);
